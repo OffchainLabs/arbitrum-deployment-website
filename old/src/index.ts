@@ -1,6 +1,8 @@
 import $ from "jquery";
 import { ethers } from 'ethers';
-import { ArbFactoryFactory, ArbFactory, ArbValue } from 'arb-provider-ethers'
+import { ArbValue } from 'arb-provider-ethers'
+import { ArbFactoryFactory } from 'arb-provider-ethers/dist/lib/abi/ArbFactoryFactory'
+import { ArbFactory } from 'arb-provider-ethers/dist/lib/abi/ArbFactory'
 
 import './style.scss';
 
@@ -62,9 +64,9 @@ function readContractFile(): Promise<void> {
 	let input = document.getElementById("inputFile") as HTMLInputElement;
 	if (input.files && input.files[0]) {
 		return readFileAsync(input.files[0]).then((data) => {
-			let machineHash = ArbValue.contractMachineHash(data);
-			$("#machineHash").html(machineHash);
-			$("#inputFile").data("title", "Machine Hash: " + machineHash);
+			// let machineHash = ArbValue.contractMachineHash(data);
+			// $("#machineHash").html(machineHash);
+			// $("#inputFile").data("title", "Machine Hash: " + machineHash);
 		});
     }
     throw Error("Couldn't read file");
@@ -98,7 +100,7 @@ function setLocalConfig() {
 	let t = document.getElementById("gracePeriod");
 	console.log(t);
 	if (t) {
-		console.log(t.);
+		console.log(t);
 	}
 	setConfigFields(
 		450,
