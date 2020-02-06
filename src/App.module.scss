@@ -1,0 +1,43 @@
+html {
+  font-size: 18px; // base font size all rem units will be based on
+  margin: 0;
+  padding: 0;
+}
+
+.baseTitle {
+  font-weight: 500; // slightly bold
+}
+
+.baseContainer {
+}
+
+.rootContainer {
+  margin: 0 auto;
+  max-width: 800px;
+  text-align: center;
+}
+
+.title {
+  font-size: 1.8rem;
+  padding: 20px 0;
+}
+
+.subtitle {
+  font-size: 1.4rem;
+  padding: 10px 0;
+}
+
+.dndContainer {
+}
+
+.presetsContainer {
+  display: flex;
+  justify-content: space-between;
+  padding: 15px 0;
+}
+
+.chainParamsForm {
+  & > * {
+    padding-bottom: 5px;
+  }
+}
