@@ -92,13 +92,6 @@ const App = () => {
     }
   })
 
-  const closeAlert = () => setAlert(a => [a[0], a[1], false])
-
-  const displayError = (message: string) => {
-    setAlert(['danger', message, true])
-    setTimeout(closeAlert, ALERT_TIMEOUT)
-  }
-
   React.useEffect(() => {
     if (!web3) {
       if (!web3Injected(window.ethereum)) {
@@ -116,6 +109,16 @@ const App = () => {
       }
     }
   })
+
+  const closeAlert = () => setAlert(a => [a[0], a[1], false])
+
+  const displayError = (message: string) => {
+    setAlert(['danger', message, true])
+    setTimeout(closeAlert, ALERT_TIMEOUT)
+  }
+
+  const updateConfig = (c: RollupChainConfig) =>
+    setConfig(oldConfig => ({ ...c, vmHash: oldConfig.vmHash }))
 
   const handleCreateRollup = async () => {
     if (!web3 || !factory) {
@@ -182,12 +185,15 @@ const App = () => {
         <div className={styles.presetsContainer}>
           <span>Presets</span>
           <ButtonGroup>
-            <Button {...groupButtonStyle} onClick={() => setConfig(configInit)}>
+            <Button
+              {...groupButtonStyle}
+              onClick={() => updateConfig(configInit)}
+            >
               Blank
             </Button>
             <Button
               {...groupButtonStyle}
-              onClick={() => setConfig(configLocal)}
+              onClick={() => updateConfig(configLocal)}
             >
               Local testing
             </Button>
@@ -263,7 +269,11 @@ const App = () => {
         Create Rollup Chain
       </Button>
       {alertActive ? (
-        <Alert variant={alertVariant} children={alertContent} className={styles.alert}/>
+        <Alert
+          variant={alertVariant}
+          children={alertContent}
+          className={styles.alert}
+        />
       ) : null}
     </div>
   )
