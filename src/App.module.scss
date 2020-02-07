@@ -8,8 +8,7 @@ html {
   font-weight: 500; // slightly bold
 }
 
-.baseContainer {
-}
+// .baseContainer {}
 
 .rootContainer {
   margin: 0 auto;
@@ -19,25 +18,41 @@ html {
 
 .title {
   font-size: 1.8rem;
-  padding: 20px 0;
+  margin: 20px 0;
 }
 
 .subtitle {
   font-size: 1.4rem;
-  padding: 10px 0;
+  margin: 10px 0;
 }
 
-.dndContainer {
-}
+// .dndContainer {}
 
 .presetsContainer {
   display: flex;
   justify-content: space-between;
-  padding: 15px 0;
+  margin: 15px 0;
 }
 
 .chainParamsForm {
   & > * {
-    padding-bottom: 5px;
+    margin-bottom: 5px;
   }
+
+  .formLabel {
+    width: 40%;
+
+    .formLabelText {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  .machineHash {
+    text-align: center;
+  }
+}
+
+.createButton {
+  margin-top: 25px;
 }
