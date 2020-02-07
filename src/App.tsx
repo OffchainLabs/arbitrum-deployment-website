@@ -26,6 +26,14 @@ interface RollupChainConfig {
   stakeRequirement: string
 }
 
+const configInit: RollupChainConfig = {
+  gracePeriod: '',
+  arbGasSpeed: '',
+  maxSteps: '',
+  maxTimeWidth: '',
+  stakeRequirement: ''
+}
+
 const configLocal: RollupChainConfig = {
   gracePeriod: '450',
   arbGasSpeed: '20000000',
@@ -75,15 +83,16 @@ declare global {
 
 const FormattedFormInput: React.FC<{
   type?: string
-  onChange: React.FormEventHandler<HTMLInputElement>
-}> = ({ children, onChange, type = 'text' }) => (
+  onChange: React.FormEventHandler<HTMLInputElement>,
+  value?: string
+}> = ({ children, onChange, value, type = 'text' }) => (
   <InputGroup>
     <InputGroup.Prepend className={styles.formLabel}>
       <InputGroup.Text className={styles.formLabelText}>
         {children}
       </InputGroup.Text>
     </InputGroup.Prepend>
-    <Form.Control onChange={onChange} />
+    <Form.Control onChange={onChange} value={value}/>
   </InputGroup>
 )
 
@@ -91,8 +100,7 @@ const App = () => {
   const { getRootProps, getInputProps } = useDropzone({ accept: '.ao' })
   const [web3, setWeb3] = React.useState<ethers.providers.JsonRpcProvider>()
   const [factory, setFactory] = React.useState<ArbFactory>()
-  const [config, setConfig] = React.useState<Partial<RollupChainConfig>>({})
-  console.log(config)
+  const [config, setConfig] = React.useState<RollupChainConfig>(configInit)
 
   React.useEffect(() => {
     if (!web3) {
@@ -172,8 +180,8 @@ const App = () => {
         <div className={styles.presetsContainer}>
           <span>Presets</span>
           <ButtonGroup>
-            <Button {...groupButtonStyle}>Blank</Button>
-            <Button {...groupButtonStyle}>Local testing</Button>
+            <Button {...groupButtonStyle} onClick={() => setConfig(configInit)}>Blank</Button>
+            <Button {...groupButtonStyle} onClick={() => setConfig(configLocal)}>Local testing</Button>
           </ButtonGroup>
         </div>
 
@@ -199,6 +207,7 @@ const App = () => {
               const stakeRequirement = e.target.value
               setConfig(c => ({ ...c, stakeRequirement }))
             }}
+            value={config.stakeRequirement}
           />
           <FormattedFormInput
             children={'Grace period (seconds)'}
@@ -206,6 +215,7 @@ const App = () => {
               const gracePeriod = e.target.value
               setConfig(c => ({ ...c, gracePeriod }))
             }}
+            value={config.gracePeriod}
           />
           <FormattedFormInput
             children={'Arb gas speed'}
@@ -213,6 +223,7 @@ const App = () => {
               const arbGasSpeed = e.target.value
               setConfig(c => ({ ...c, arbGasSpeed }))
             }}
+            value={config.arbGasSpeed}
           />
           <FormattedFormInput
             children={'Max Steps'}
@@ -220,6 +231,7 @@ const App = () => {
               const maxSteps = e.target.value
               setConfig(c => ({ ...c, maxSteps }))
             }}
+            value={config.maxSteps}
           />
           <FormattedFormInput
             children={'Max time bounds width (blocks)'}
@@ -227,6 +239,7 @@ const App = () => {
               const maxTimeWidth = e.target.value
               setConfig(c => ({ ...c, maxTimeWidth }))
             }}
+            value={config.maxTimeWidth}
           />
         </div>
       </div>
