@@ -10,16 +10,13 @@ function readFileAsync(file: File): Promise<Uint8Array> {
       }
     }
     reader.onerror = () => {
-      console.log(reader.error)
+      reject(reader.error)
     }
     reader.readAsArrayBuffer(file)
   })
 }
 
-export async function getContractHash(
-  files: File[],
-  event: DropEvent
-): Promise<string> {
+export async function getContractHash(files: File[]): Promise<string> {
   if (files.length === 0) {
     throw Error('No files')
   }

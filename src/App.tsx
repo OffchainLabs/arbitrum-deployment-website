@@ -4,6 +4,7 @@ import { ArbFactory } from 'arb-provider-ethers/dist/lib/abi/ArbFactory'
 import { useDropzone } from 'react-dropzone'
 import styles from './App.module.scss'
 import {
+  Alert,
   Button,
   ButtonProps,
   ButtonGroup,
@@ -18,6 +19,7 @@ import { getContractHash } from './util/file'
 
 const ROLLUP_FACTORY = '0xd309F6Ba1B53CbDF9c0690eD1316A347eBb7adf9'
 const WALLET_IDX = 0
+const ALERT_TIMEOUT = 3 * 1000
 
 interface RollupChainConfig {
   gracePeriod: string
@@ -77,18 +79,30 @@ const App = () => {
   const [web3, setWeb3] = React.useState<ethers.providers.JsonRpcProvider>()
   const [factory, setFactory] = React.useState<ArbFactory>()
   const [config, setConfig] = React.useState<RollupChainConfig>(configInit)
+  const [[alertVariant, alertContent, alertActive], setAlert] = React.useState<
+    ['danger', string, boolean]
+  >(['danger', '', false])
+  const [fileName, setFileName] = React.useState<string>()
   const { getRootProps, getInputProps } = useDropzone({
     accept: '.ao',
-    onDropAccepted: async (...args) => {
-      const h = await getContractHash(...args)
-      setConfig(c => ({ ...c, vmHash: h.slice(0, 20) }))
+    onDropAccepted: async (files, _e) => {
+      const vmHash = await getContractHash(files)
+      setConfig(c => ({ ...c, vmHash }))
+      setFileName(files[0].name)
     }
   })
+
+  const closeAlert = () => setAlert(a => [a[0], a[1], false])
+
+  const displayError = (message: string) => {
+    setAlert(['danger', message, true])
+    setTimeout(closeAlert, ALERT_TIMEOUT)
+  }
 
   React.useEffect(() => {
     if (!web3) {
       if (!web3Injected(window.ethereum)) {
-        alert('web3 not present') // TODO
+        displayError('web3 not present') // TODO
       } else {
         getInjectedWeb3().then(provider => {
           setWeb3(provider)
@@ -105,7 +119,7 @@ const App = () => {
 
   const handleCreateRollup = async () => {
     if (!web3 || !factory) {
-      throw new Error('missing web3 or factory')
+      return displayError('missing web3 or factory')
     }
 
     // TODO better form validation
@@ -125,9 +139,7 @@ const App = () => {
       !stakeRequirement ||
       !vmHash
     ) {
-      throw new Error(
-        `missing required rollup parameter ${JSON.stringify(config)}`
-      )
+      return displayError('missing parameter')
     }
 
     const addresses = await web3.listAccounts()
@@ -156,7 +168,8 @@ const App = () => {
         <Card className={styles.dndContainer} {...getRootProps()}>
           <input {...getInputProps()} />
           <Card.Body>
-            Drag and drop a contract file, or click to open a prompt.
+            {fileName ??
+              'Drag and drop a contract file, or click to open a prompt.'}
           </Card.Body>
         </Card>
       </div>
@@ -193,7 +206,7 @@ const App = () => {
               type={'text'}
               readOnly
               plaintext
-              value={config.vmHash}
+              value={config.vmHash.slice(0, 20)}
             />
           </InputGroup>
 
@@ -244,9 +257,14 @@ const App = () => {
         variant={'primary'}
         className={styles.createButton}
         onClick={handleCreateRollup}
+        size={'lg'}
+        block
       >
         Create Rollup Chain
       </Button>
+      {alertActive ? (
+        <Alert variant={alertVariant} children={alertContent} className={styles.alert}/>
+      ) : null}
     </div>
   )
 }
