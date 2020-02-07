@@ -1,5 +1,5 @@
 import React from 'react'
-import { ArbFactoryFactory } from 'arb-provider-ethers'
+import { ArbFactoryFactory } from 'arb-provider-ethers/dist/lib/abi/ArbFactoryFactory'
 import { ArbFactory } from 'arb-provider-ethers/dist/lib/abi/ArbFactory'
 import { useDropzone } from 'react-dropzone'
 import styles from './App.module.scss'

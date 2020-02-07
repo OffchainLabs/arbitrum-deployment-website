@@ -1,5 +1,5 @@
 import { ArbValue } from 'arb-provider-ethers'
-import { DropEvent } from 'react-dropzone'
+
 function readFileAsync(file: File): Promise<Uint8Array> {
   return new Promise<Uint8Array>((resolve, reject) => {
     var reader = new FileReader()
