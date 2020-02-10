@@ -17,6 +17,7 @@ import { ethers } from 'ethers'
 import { web3Injected, getInjectedWeb3 } from './util/web3'
 import { getContractHash } from './util/file'
 import { secondsToTicks } from './util/ticks'
+import Logo from './logo.png'
 
 const ROLLUP_FACTORY = '0xd309F6Ba1B53CbDF9c0690eD1316A347eBb7adf9'
 const WALLET_IDX = 0
@@ -100,6 +101,7 @@ const App = () => {
     ['danger', string, boolean]
   >(['danger', '', false])
   const [fileName, setFileName] = React.useState<string>()
+  const [rollupAddr, setRollupAddr] = React.useState<string>()
   const { getRootProps, getInputProps } = useDropzone({
     accept: '.ao',
     onDropAccepted: async (files, _e) => {
@@ -174,24 +176,29 @@ const App = () => {
     )
     const gracePeriodTicks = secondsToTicks(parseInt(gracePeriod, 10) * 60)
 
-    factory.createRollup(
+    const result = await (await factory.createRollup(
       vmHash,
       gracePeriodTicks,
       speedLimitTicks,
       ethers.utils.bigNumberify(maxSteps),
       ethers.utils.bigNumberify(maxTimeWidth),
-      ethers.utils.bigNumberify(stakeRequirement),
+      ethers.utils.parseEther(stakeRequirement),
       addresses[WALLET_IDX]
-    )
+    )).wait()
+
+    const e = result?.events?.find(e => e.topics.includes(factory.interface.events.RollupCreated.topic))
+    // TODO type bottom
+    setRollupAddr(e!.args![0])
   }
 
   return (
     <div className={styles.rootContainer}>
-      <div className={mergeStyles(styles.baseTitle, styles.title)}>
-        Arbitrum Rollup Chain Creator
+      <div className={styles.titleContainer}>
+        <img src={Logo} className={styles.logo}/>
+        <div className={mergeStyles(styles.baseTitle, styles.title)}>Arbitrum Rollup Chain Creator</div>
       </div>
 
-      <div>
+      <div className={styles.uploadContainer}>
         <div className={mergeStyles(styles.baseTitle, styles.subtitle)}>
           Contract Upload
         </div>
@@ -210,7 +217,7 @@ const App = () => {
         </div>
 
         <div className={styles.presetsContainer}>
-          <span>Presets</span>
+          <span className={mergeStyles(styles.baseTitle, styles.presetTitle)}>Presets</span>
           <ButtonGroup>
             <Button
               {...groupButtonStyle}
@@ -292,13 +299,14 @@ const App = () => {
       </div>
 
       <Button
-        variant={'primary'}
+        variant={rollupAddr ? 'success' : 'primary'}
         className={styles.createButton}
         onClick={handleCreateRollup}
         size={'lg'}
+        disabled={!!rollupAddr}
         block
       >
-        Create Rollup Chain
+        {rollupAddr ?? 'Create Rollup Chain' }
       </Button>
       {alertActive ? (
         <Alert
@@ -307,6 +315,8 @@ const App = () => {
           className={styles.alert}
         />
       ) : null}
+
+
     </div>
   )
 }
