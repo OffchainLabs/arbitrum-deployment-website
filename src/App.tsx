@@ -16,33 +16,50 @@ import {
 import { ethers } from 'ethers'
 import { web3Injected, getInjectedWeb3 } from './util/web3'
 import { getContractHash } from './util/file'
+import { secondsToTicks } from './util/ticks'
 
 const ROLLUP_FACTORY = '0xd309F6Ba1B53CbDF9c0690eD1316A347eBb7adf9'
 const WALLET_IDX = 0
 const ALERT_TIMEOUT = 3 * 1000
+const GAS_PER_SECOND = 10 ** 8
+const GAS_PER_STEP = 5 // average
+
+const cpuFactorToSpeedLimit = (factor: number): number =>
+  factor * GAS_PER_SECOND
+const assertionTimeToSteps = (seconds: number, speedLimitSeconds: number) =>
+  (seconds * speedLimitSeconds) / GAS_PER_STEP
 
 interface RollupChainConfig {
-  gracePeriod: string
-  arbGasSpeed: string
-  maxSteps: string
-  maxTimeWidth: string
-  stakeRequirement: string
+  gracePeriod: string // minutes
+  speedLimitFactor: string // cpu factor
+  maxAssertionTime: string // seconds
+  maxTimeWidth: string // blocks
+  stakeRequirement: string // eth
   vmHash: string
 }
 
 const configInit: RollupChainConfig = {
   gracePeriod: '',
-  arbGasSpeed: '',
-  maxSteps: '',
+  speedLimitFactor: '',
+  maxAssertionTime: '',
   maxTimeWidth: '',
   stakeRequirement: '',
   vmHash: ''
 }
 
 const configLocal: RollupChainConfig = {
-  gracePeriod: '450',
-  arbGasSpeed: '20000000',
-  maxSteps: '1000000000',
+  gracePeriod: '10',
+  speedLimitFactor: '0.2',
+  maxAssertionTime: '250',
+  maxTimeWidth: '20',
+  stakeRequirement: '0.1',
+  vmHash: ''
+}
+
+const configTestnet: RollupChainConfig = {
+  gracePeriod: '180',
+  speedLimitFactor: '1.0',
+  maxAssertionTime: '50',
   maxTimeWidth: '20',
   stakeRequirement: '1',
   vmHash: ''
@@ -128,16 +145,16 @@ const App = () => {
     // TODO better form validation
     const {
       gracePeriod,
-      arbGasSpeed,
-      maxSteps,
+      speedLimitFactor,
+      maxAssertionTime,
       maxTimeWidth,
       stakeRequirement,
       vmHash
     } = config
     if (
       !gracePeriod ||
-      !arbGasSpeed ||
-      !maxSteps ||
+      !speedLimitFactor ||
+      !maxAssertionTime ||
       !maxTimeWidth ||
       !stakeRequirement ||
       !vmHash
@@ -147,10 +164,20 @@ const App = () => {
 
     const addresses = await web3.listAccounts()
 
+    const speedLimitSeconds = cpuFactorToSpeedLimit(
+      parseFloat(speedLimitFactor)
+    )
+    const speedLimitTicks = secondsToTicks(speedLimitSeconds)
+    const maxSteps = assertionTimeToSteps(
+      parseInt(maxAssertionTime, 10),
+      speedLimitSeconds
+    )
+    const gracePeriodTicks = secondsToTicks(parseInt(gracePeriod, 10) * 60)
+
     factory.createRollup(
       vmHash,
-      ethers.utils.bigNumberify(gracePeriod),
-      ethers.utils.bigNumberify(arbGasSpeed),
+      gracePeriodTicks,
+      speedLimitTicks,
       ethers.utils.bigNumberify(maxSteps),
       ethers.utils.bigNumberify(maxTimeWidth),
       ethers.utils.bigNumberify(stakeRequirement),
@@ -188,24 +215,28 @@ const App = () => {
             <Button
               {...groupButtonStyle}
               onClick={() => updateConfig(configInit)}
-            >
-              Blank
-            </Button>
+              children={'Blank'}
+            />
             <Button
               {...groupButtonStyle}
               onClick={() => updateConfig(configLocal)}
-            >
-              Local testing
-            </Button>
+              children={'Local'}
+            />
+            <Button
+              {...groupButtonStyle}
+              onClick={() => updateConfig(configTestnet)}
+              children={'Testnet'}
+            />
           </ButtonGroup>
         </div>
 
         <div className={styles.chainParamsForm}>
           <InputGroup>
             <InputGroup.Prepend className={styles.formLabel}>
-              <InputGroup.Text className={styles.formLabelText}>
-                Machine Hash
-              </InputGroup.Text>
+              <InputGroup.Text
+                className={styles.formLabelText}
+                children={'Initial VM Hash'}
+              />
             </InputGroup.Prepend>
             <FormControl
               className={styles.machineHash}
@@ -225,7 +256,7 @@ const App = () => {
             value={config.stakeRequirement}
           />
           <FormattedFormInput
-            children={'Grace period (seconds)'}
+            children={'Grace period (minutes)'}
             onChange={e => {
               const gracePeriod = e.target.value
               setConfig(c => ({ ...c, gracePeriod }))
@@ -233,20 +264,21 @@ const App = () => {
             value={config.gracePeriod}
           />
           <FormattedFormInput
-            children={'Arb gas speed'}
+            children={'Speed limit'}
             onChange={e => {
-              const arbGasSpeed = e.target.value
-              setConfig(c => ({ ...c, arbGasSpeed }))
+              const speedLimitFactor = e.target.value
+              setConfig(c => ({ ...c, speedLimitFactor }))
             }}
-            value={config.arbGasSpeed}
+            value={config.speedLimitFactor}
           />
+          {/* TODO note how this is converted */}
           <FormattedFormInput
-            children={'Max Steps'}
+            children={'Max assertion size (seconds)'}
             onChange={e => {
-              const maxSteps = e.target.value
-              setConfig(c => ({ ...c, maxSteps }))
+              const maxAssertionTime = e.target.value
+              setConfig(c => ({ ...c, maxAssertionTime }))
             }}
-            value={config.maxSteps}
+            value={config.maxAssertionTime}
           />
           <FormattedFormInput
             children={'Max time bounds width (blocks)'}
