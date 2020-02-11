@@ -2,6 +2,7 @@
   "name": "arbitrum-deployment-website",
   "version": "0.1.0",
   "description": "Website to allow the easy deployment of Arbitrum Chains",
+  "homepage": "https://developer.offchainlabs.com/tools/deployment",
   "repository": "https://github.com/OffchainLabs/arbitrum-deployment-website.git",
   "private": true,
   "dependencies": {
