@@ -24,7 +24,7 @@ import {
 import Logo from './logo.png'
 import * as chainConfig from './util/chainConfig'
 
-const ROLLUP_FACTORY = '0xd309F6Ba1B53CbDF9c0690eD1316A347eBb7adf9'
+const ROLLUP_FACTORY = '0x2ff2D1Cced0EBD48ca829d3C9E7f86A1141F761F'
 const WALLET_IDX = 0
 const ALERT_TIMEOUT = 30 * 1000
 const GAS_PER_SECOND = 10 ** 8
