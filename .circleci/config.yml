@@ -18,9 +18,8 @@ jobs:
           name: Deploy Prod
           command: |
             yarn build
-            ssh -oStrictHostKeyChecking=no hkalodner@206.189.196.195 "rm -rf /var/www/developer.offchainlabs.com/html/tools/deployment*"
+            ssh -oStrictHostKeyChecking=no hkalodner@206.189.196.195 "rm -rf /var/www/developer.offchainlabs.com/html/tools/deployment/*"
             scp -oStrictHostKeyChecking=no -r build/* hkalodner@206.189.196.195:/var/www/developer.offchainlabs.com/html/tools/deployment
-          working_directory: ~/developer-website/website
 
 workflows:
   version: 2
