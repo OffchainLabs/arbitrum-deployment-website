@@ -16,7 +16,11 @@ import {
 import { ethers } from 'ethers'
 import { web3Injected, getInjectedWeb3 } from './util/web3'
 import { getContractHash } from './util/file'
-import { secondsToTicks, SECONDS_PER_BLOCK } from './util/ticks'
+import {
+  secondsToTicks,
+  SECONDS_PER_BLOCK,
+  secondsToBlocks
+} from './util/ticks'
 import Logo from './logo.png'
 import * as chainConfig from './util/chainConfig'
 
@@ -69,7 +73,7 @@ const App = () => {
   const [factory, setFactory] = React.useState<ArbFactory>()
   const [config, setConfig] = React.useState(chainConfig.init)
   const [[alertVariant, alertContent, alertActive], setAlert] = React.useState<
-    ['danger', string, boolean]
+    ['danger' | 'success', string, boolean]
   >(['danger', '', false])
   const [fileName, setFileName] = React.useState<string>()
   const [rollupAddr, setRollupAddr] = React.useState<string>()
@@ -107,8 +111,23 @@ const App = () => {
     setTimeout(closeAlert, ALERT_TIMEOUT)
   }
 
+  const displayInfo = (message: string) => {
+    setAlert(['success', message, true])
+    setTimeout(closeAlert, ALERT_TIMEOUT)
+  }
+
   const updateConfig = (c: chainConfig.RollupParams) =>
     setConfig(oldConfig => ({ ...c, vmHash: oldConfig.vmHash }))
+
+  const handleCopyAddr = () => {
+    if (!rollupAddr) {
+      return displayError('No rollup address to copy')
+    }
+
+    navigator.clipboard.writeText(rollupAddr)
+      .then(() => displayInfo('Contract address copied!'))
+      .catch(() => displayError('Unable to copy address!'))
+  }
 
   const handleCreateRollup = async () => {
     if (!web3 || !factory) {
@@ -145,7 +164,7 @@ const App = () => {
     } catch (e) {
       console.error(e)
       return displayError(
-        'Non-number value passed in. See console for details.'
+        'Non-number value passed in. See console for more details.'
       )
     }
 
@@ -164,48 +183,54 @@ const App = () => {
       return displayError(
         'Invalid max assertion size. Must be at least half of the average block time (13 seconds on a public network) and no more than 1/4 of the grace period.'
       )
+    } else if (
+      parsedMaxTimeWidth.lt(5) ||
+      parsedMaxTimeWidth.gt(secondsToBlocks(parsedGracePeriod * 60))
+    ) {
+      return displayError(
+        `Invalid max time width, should be in range 5 - (gracePeriod * 60 / ${SECONDS_PER_BLOCK})`
+      )
     }
 
-    const gracePeriodTicks = secondsToTicks(parsedGracePeriod * 60)
     const speedLimitSeconds = cpuFactorToSpeedLimit(parsedSpeedLimitFactor)
-    const speedLimitTicks = secondsToTicks(speedLimitSeconds)
     const maxSteps = assertionTimeToSteps(
       parsedMaxAssertionSize,
       speedLimitSeconds
     )
-    
+
+    displayInfo('Deploying contract...')
+
     try {
       const addresses = await web3.listAccounts()
 
       const result = await (
         await factory.createRollup(
           config.vmHash,
-          gracePeriodTicks,
-          speedLimitTicks,
+          secondsToTicks(parsedGracePeriod * 60),
+          secondsToTicks(speedLimitSeconds),
           ethers.utils.bigNumberify(maxSteps),
           parsedMaxTimeWidth,
           parsedStakeRequirement,
           addresses[WALLET_IDX]
         )
       ).wait()
-  
+
       const e = result.events?.find(e =>
         e.topics.includes(factory.interface.events.RollupCreated.topic)
       )
-  
+
       // thanks for the 'array' ethers
       const {
         vmAddress
       }: RollupCreatedParams = (e?.args as any) as RollupCreatedParams
-  
+
       setRollupAddr(vmAddress)
     } catch (e) {
       console.error(e)
       return displayError('Unable to deploy contract. See console for details.')
     }
 
-    // ensure any previous alerts are nolonger shown
-    closeAlert()
+    displayInfo('Contract deployed!')
   }
 
   return (
@@ -312,7 +337,6 @@ const App = () => {
             }}
             value={config.speedLimitFactor}
           />
-          {/* TODO note how this is converted */}
           <FormattedFormInput
             children={'Max assertion size (seconds)'}
             onChange={e => {
@@ -335,12 +359,11 @@ const App = () => {
       <Button
         variant={rollupAddr ? 'success' : 'primary'}
         className={styles.createButton}
-        onClick={handleCreateRollup}
+        onClick={rollupAddr ? handleCopyAddr : handleCreateRollup}
         size={'lg'}
-        disabled={!!rollupAddr}
         block
       >
-        {rollupAddr ?? 'Create Rollup Chain'}
+        {rollupAddr ? `${rollupAddr} (click to copy)`: 'Create Rollup Chain'}
       </Button>
     </div>
   )
