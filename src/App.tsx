@@ -207,7 +207,7 @@ const App = () => {
           <input {...getInputProps()} />
           <Card.Body>
             {fileName ??
-              'Drag and drop a contract file, or click to open a prompt.'}
+              'Drag and drop an Arbitrum executable, or click to open a prompt.'}
           </Card.Body>
         </Card>
       </div>
