@@ -24,6 +24,7 @@ const WALLET_IDX = 0
 const ALERT_TIMEOUT = 3 * 1000
 const GAS_PER_SECOND = 10 ** 8
 const GAS_PER_STEP = 5 // average
+const DEV_DOC_URL = "https://developer.offchainlabs.com/docs/Chain_parameters/"
 
 const cpuFactorToSpeedLimit = (factor: number): number =>
   factor * GAS_PER_SECOND
@@ -215,6 +216,8 @@ const App = () => {
         <div className={mergeStyles(styles.baseTitle, styles.subtitle)}>
           Chain Configuration
         </div>
+
+        <div>For more information on what these parameters do, <a href={DEV_DOC_URL}>check out the developer documentation</a>.</div>
 
         <div className={styles.presetsContainer}>
           <span className={mergeStyles(styles.baseTitle, styles.presetTitle)}>Presets</span>
