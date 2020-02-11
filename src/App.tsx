@@ -16,56 +16,22 @@ import {
 import { ethers } from 'ethers'
 import { web3Injected, getInjectedWeb3 } from './util/web3'
 import { getContractHash } from './util/file'
-import { secondsToTicks } from './util/ticks'
+import { secondsToTicks, SECONDS_PER_BLOCK } from './util/ticks'
 import Logo from './logo.png'
+import * as chainConfig from './util/chainConfig'
 
 const ROLLUP_FACTORY = '0xd309F6Ba1B53CbDF9c0690eD1316A347eBb7adf9'
 const WALLET_IDX = 0
 const ALERT_TIMEOUT = 3 * 1000
 const GAS_PER_SECOND = 10 ** 8
-const GAS_PER_STEP = 5 // average
-const DEV_DOC_URL = "https://developer.offchainlabs.com/docs/Chain_parameters/"
+const GAS_PER_STEP = 5
+const DEV_DOC_URL = 'https://developer.offchainlabs.com/docs/Chain_parameters/'
 
 const cpuFactorToSpeedLimit = (factor: number): number =>
   factor * GAS_PER_SECOND
+
 const assertionTimeToSteps = (seconds: number, speedLimitSeconds: number) =>
   (seconds * speedLimitSeconds) / GAS_PER_STEP
-
-interface RollupChainConfig {
-  gracePeriod: string // minutes
-  speedLimitFactor: string // cpu factor
-  maxAssertionTime: string // seconds
-  maxTimeWidth: string // blocks
-  stakeRequirement: string // eth
-  vmHash: string
-}
-
-const configInit: RollupChainConfig = {
-  gracePeriod: '',
-  speedLimitFactor: '',
-  maxAssertionTime: '',
-  maxTimeWidth: '',
-  stakeRequirement: '',
-  vmHash: ''
-}
-
-const configLocal: RollupChainConfig = {
-  gracePeriod: '10',
-  speedLimitFactor: '0.2',
-  maxAssertionTime: '15',
-  maxTimeWidth: '20',
-  stakeRequirement: '0.1',
-  vmHash: ''
-}
-
-const configTestnet: RollupChainConfig = {
-  gracePeriod: '180',
-  speedLimitFactor: '1.0',
-  maxAssertionTime: '50',
-  maxTimeWidth: '20',
-  stakeRequirement: '1',
-  vmHash: ''
-}
 
 const mergeStyles = (...styles: string[]): string => styles.join(' ')
 
@@ -77,6 +43,10 @@ declare global {
   interface EventTarget {
     value: any
   }
+}
+
+interface RollupCreatedParams {
+  vmAddress: string
 }
 
 const FormattedFormInput: React.FC<{
@@ -97,7 +67,7 @@ const FormattedFormInput: React.FC<{
 const App = () => {
   const [web3, setWeb3] = React.useState<ethers.providers.JsonRpcProvider>()
   const [factory, setFactory] = React.useState<ArbFactory>()
-  const [config, setConfig] = React.useState<RollupChainConfig>(configInit)
+  const [config, setConfig] = React.useState(chainConfig.init)
   const [[alertVariant, alertContent, alertActive], setAlert] = React.useState<
     ['danger', string, boolean]
   >(['danger', '', false])
@@ -137,66 +107,91 @@ const App = () => {
     setTimeout(closeAlert, ALERT_TIMEOUT)
   }
 
-  const updateConfig = (c: RollupChainConfig) =>
+  const updateConfig = (c: chainConfig.RollupParams) =>
     setConfig(oldConfig => ({ ...c, vmHash: oldConfig.vmHash }))
 
   const handleCreateRollup = async () => {
     if (!web3 || !factory) {
-      return displayError('missing web3 or factory')
+      return displayError(`Missing: Web3 ${!!web3} Factory ${!!factory}`)
     }
 
-    // TODO better form validation
-    const {
-      gracePeriod,
-      speedLimitFactor,
-      maxAssertionTime,
-      maxTimeWidth,
-      stakeRequirement,
-      vmHash
-    } = config
-    if (
-      !gracePeriod ||
-      !speedLimitFactor ||
-      !maxAssertionTime ||
-      !maxTimeWidth ||
-      !stakeRequirement ||
-      !vmHash
-    ) {
-      return displayError('missing parameter')
+    const missing = []
+    for (const prop in config) {
+      if (!config[prop as keyof chainConfig.RollupParams]) {
+        missing.push(prop)
+      }
     }
+
+    if (missing.length > 0) {
+      return displayError('Misisng required properties: ' + missing)
+    }
+
+    const parsedStakeRequirement = ethers.utils.parseEther(config.stakeRequirement)
+    const parsedGracePeriod = parseInt(config.gracePeriod, 10)
+    const parsedSpeedLimitFactor = parseFloat(config.speedLimitFactor)
+    const parsedMaxAssertionSize = parseInt(config.maxAssertionSize, 10)
+    const parsedMaxTimeWidth = ethers.utils.bigNumberify(config.maxTimeWidth)
+
+    if (parsedStakeRequirement < ethers.utils.parseUnits('1', 'gwei')) {
+      return displayError('Stake requirement should be at least 1 gwei.')
+    } else if (parsedGracePeriod < 2 || parsedGracePeriod > 60 * 24 * 7) {
+      return displayError(
+        'Grace period must be more than 2 mins and less than 1 week.'
+      )
+    } else if (parsedSpeedLimitFactor < 0.1 || parsedSpeedLimitFactor > 100) {
+      return displayError('Invalid speed limit, must be in the range 0.1 - 100')
+    } else if (
+      SECONDS_PER_BLOCK.div(2).gt(parsedMaxAssertionSize) ||
+      parsedMaxAssertionSize > ((parsedGracePeriod * 60) / 4)
+    ) {
+      return displayError(
+        'Invalid max assertion size. Must be at least half of the average block time (13 seconds on a public network) and no more than 1/4 of the grace period.'
+      )
+    }
+
+    const gracePeriodTicks = secondsToTicks(parsedGracePeriod * 60)
+    const speedLimitSeconds = cpuFactorToSpeedLimit(parsedSpeedLimitFactor)
+    const speedLimitTicks = secondsToTicks(speedLimitSeconds)
+    const maxSteps = assertionTimeToSteps(
+      parsedMaxAssertionSize,
+      speedLimitSeconds
+    )
 
     const addresses = await web3.listAccounts()
 
-    const speedLimitSeconds = cpuFactorToSpeedLimit(
-      parseFloat(speedLimitFactor)
-    )
-    const speedLimitTicks = secondsToTicks(speedLimitSeconds)
-    const maxSteps = assertionTimeToSteps(
-      parseInt(maxAssertionTime, 10),
-      speedLimitSeconds
-    )
-    const gracePeriodTicks = secondsToTicks(parseInt(gracePeriod, 10) * 60)
+    const result = await (
+      await factory.createRollup(
+        config.vmHash,
+        gracePeriodTicks,
+        speedLimitTicks,
+        ethers.utils.bigNumberify(maxSteps),
+        parsedMaxTimeWidth,
+        parsedStakeRequirement,
+        addresses[WALLET_IDX]
+      )
+    ).wait()
 
-    const result = await (await factory.createRollup(
-      vmHash,
-      gracePeriodTicks,
-      speedLimitTicks,
-      ethers.utils.bigNumberify(maxSteps),
-      ethers.utils.bigNumberify(maxTimeWidth),
-      ethers.utils.parseEther(stakeRequirement),
-      addresses[WALLET_IDX]
-    )).wait()
+    const e = result.events?.find(e =>
+      e.topics.includes(factory.interface.events.RollupCreated.topic)
+    )
 
-    const e = result?.events?.find(e => e.topics.includes(factory.interface.events.RollupCreated.topic))
-    // TODO type below
-    setRollupAddr(e!.args![0])
+    if (!e || !e.args) {
+       return displayError('no RollupCreated event detected')
+    }
+
+    // thanks for the 'array' ethers
+    const {vmAddress}: RollupCreatedParams = e.args as any as RollupCreatedParams
+
+    setRollupAddr(vmAddress)
   }
 
   return (
     <div className={styles.rootContainer}>
       <div className={styles.titleContainer}>
-        <img src={Logo} className={styles.logo}/>
-        <div className={mergeStyles(styles.baseTitle, styles.title)}>Arbitrum Rollup Chain Creator</div>
+        <img src={Logo} className={styles.logo} />
+        <div className={mergeStyles(styles.baseTitle, styles.title)}>
+          Arbitrum Rollup Chain Creator
+        </div>
       </div>
 
       <div className={styles.uploadContainer}>
@@ -217,24 +212,29 @@ const App = () => {
           Chain Configuration
         </div>
 
-        <div>For more information on what these parameters do, <a href={DEV_DOC_URL}>check out the developer documentation</a>.</div>
+        <div>
+          For more information on what these parameters do,{' '}
+          <a href={DEV_DOC_URL}>check out the developer documentation</a>.
+        </div>
 
         <div className={styles.presetsContainer}>
-          <span className={mergeStyles(styles.baseTitle, styles.presetTitle)}>Presets</span>
+          <span className={mergeStyles(styles.baseTitle, styles.presetTitle)}>
+            Presets
+          </span>
           <ButtonGroup>
             <Button
               {...groupButtonStyle}
-              onClick={() => updateConfig(configInit)}
+              onClick={() => updateConfig(chainConfig.init)}
               children={'Blank'}
             />
             <Button
               {...groupButtonStyle}
-              onClick={() => updateConfig(configLocal)}
+              onClick={() => updateConfig(chainConfig.local)}
               children={'Local'}
             />
             <Button
               {...groupButtonStyle}
-              onClick={() => updateConfig(configTestnet)}
+              onClick={() => updateConfig(chainConfig.testnet)}
               children={'Testnet'}
             />
           </ButtonGroup>
@@ -245,7 +245,7 @@ const App = () => {
             <InputGroup.Prepend className={styles.formLabel}>
               <InputGroup.Text
                 className={styles.formLabelText}
-                children={'Initial VM Hash'}
+                children={'Initial Chain State Hash'}
               />
             </InputGroup.Prepend>
             <FormControl
@@ -285,10 +285,10 @@ const App = () => {
           <FormattedFormInput
             children={'Max assertion size (seconds)'}
             onChange={e => {
-              const maxAssertionTime = e.target.value
-              setConfig(c => ({ ...c, maxAssertionTime }))
+              const maxAssertionSize = e.target.value
+              setConfig(c => ({ ...c, maxAssertionSize }))
             }}
-            value={config.maxAssertionTime}
+            value={config.maxAssertionSize}
           />
           <FormattedFormInput
             children={'Max time bounds width (blocks)'}
@@ -309,7 +309,7 @@ const App = () => {
         disabled={!!rollupAddr}
         block
       >
-        {rollupAddr ?? 'Create Rollup Chain' }
+        {rollupAddr ?? 'Create Rollup Chain'}
       </Button>
       {alertActive ? (
         <Alert
@@ -318,8 +318,6 @@ const App = () => {
           className={styles.alert}
         />
       ) : null}
-
-
     </div>
   )
 }
