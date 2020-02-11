@@ -22,7 +22,7 @@ import * as chainConfig from './util/chainConfig'
 
 const ROLLUP_FACTORY = '0xd309F6Ba1B53CbDF9c0690eD1316A347eBb7adf9'
 const WALLET_IDX = 0
-const ALERT_TIMEOUT = 3 * 1000
+const ALERT_TIMEOUT = 30 * 1000
 const GAS_PER_SECOND = 10 ** 8
 const GAS_PER_STEP = 5
 const DEV_DOC_URL = 'https://developer.offchainlabs.com/docs/Chain_parameters/'
@@ -115,6 +115,7 @@ const App = () => {
       return displayError(`Missing: Web3 ${!!web3} Factory ${!!factory}`)
     }
 
+    // TODO better form validation & feedback via Formik
     const missing = []
     for (const prop in config) {
       if (!config[prop as keyof chainConfig.RollupParams]) {
@@ -126,13 +127,27 @@ const App = () => {
       return displayError('Misisng required properties: ' + missing)
     }
 
-    const parsedStakeRequirement = ethers.utils.parseEther(
-      config.stakeRequirement
-    )
     const parsedGracePeriod = parseInt(config.gracePeriod, 10)
     const parsedSpeedLimitFactor = parseFloat(config.speedLimitFactor)
     const parsedMaxAssertionSize = parseInt(config.maxAssertionSize, 10)
-    const parsedMaxTimeWidth = ethers.utils.bigNumberify(config.maxTimeWidth)
+    if (
+      isNaN(parsedGracePeriod) ||
+      isNaN(parsedSpeedLimitFactor) ||
+      isNaN(parsedMaxAssertionSize)
+    ) {
+      return displayError('Non-number value passed in.')
+    }
+
+    let parsedStakeRequirement, parsedMaxTimeWidth
+    try {
+      parsedStakeRequirement = ethers.utils.parseEther(config.stakeRequirement)
+      parsedMaxTimeWidth = ethers.utils.bigNumberify(config.maxTimeWidth)
+    } catch (e) {
+      console.error(e)
+      return displayError(
+        'Non-number value passed in. See console for details.'
+      )
+    }
 
     if (parsedStakeRequirement < ethers.utils.parseUnits('1', 'gwei')) {
       return displayError('Stake requirement should be at least 1 gwei.')
@@ -158,35 +173,39 @@ const App = () => {
       parsedMaxAssertionSize,
       speedLimitSeconds
     )
+    
+    try {
+      const addresses = await web3.listAccounts()
 
-    const addresses = await web3.listAccounts()
-
-    const result = await (
-      await factory.createRollup(
-        config.vmHash,
-        gracePeriodTicks,
-        speedLimitTicks,
-        ethers.utils.bigNumberify(maxSteps),
-        parsedMaxTimeWidth,
-        parsedStakeRequirement,
-        addresses[WALLET_IDX]
+      const result = await (
+        await factory.createRollup(
+          config.vmHash,
+          gracePeriodTicks,
+          speedLimitTicks,
+          ethers.utils.bigNumberify(maxSteps),
+          parsedMaxTimeWidth,
+          parsedStakeRequirement,
+          addresses[WALLET_IDX]
+        )
+      ).wait()
+  
+      const e = result.events?.find(e =>
+        e.topics.includes(factory.interface.events.RollupCreated.topic)
       )
-    ).wait()
-
-    const e = result.events?.find(e =>
-      e.topics.includes(factory.interface.events.RollupCreated.topic)
-    )
-
-    if (!e || !e.args) {
-      return displayError('no RollupCreated event detected')
+  
+      // thanks for the 'array' ethers
+      const {
+        vmAddress
+      }: RollupCreatedParams = (e?.args as any) as RollupCreatedParams
+  
+      setRollupAddr(vmAddress)
+    } catch (e) {
+      console.error(e)
+      return displayError('Unable to deploy contract. See console for details.')
     }
 
-    // thanks for the 'array' ethers
-    const {
-      vmAddress
-    }: RollupCreatedParams = (e.args as any) as RollupCreatedParams
-
-    setRollupAddr(vmAddress)
+    // ensure any previous alerts are nolonger shown
+    closeAlert()
   }
 
   return (
@@ -243,6 +262,14 @@ const App = () => {
             />
           </ButtonGroup>
         </div>
+
+        {alertActive ? (
+          <Alert
+            variant={alertVariant}
+            children={alertContent}
+            className={styles.alert}
+          />
+        ) : null}
 
         <div className={styles.chainParamsForm}>
           <InputGroup>
@@ -315,13 +342,6 @@ const App = () => {
       >
         {rollupAddr ?? 'Create Rollup Chain'}
       </Button>
-      {alertActive ? (
-        <Alert
-          variant={alertVariant}
-          children={alertContent}
-          className={styles.alert}
-        />
-      ) : null}
     </div>
   )
 }
