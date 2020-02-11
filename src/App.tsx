@@ -126,7 +126,9 @@ const App = () => {
       return displayError('Misisng required properties: ' + missing)
     }
 
-    const parsedStakeRequirement = ethers.utils.parseEther(config.stakeRequirement)
+    const parsedStakeRequirement = ethers.utils.parseEther(
+      config.stakeRequirement
+    )
     const parsedGracePeriod = parseInt(config.gracePeriod, 10)
     const parsedSpeedLimitFactor = parseFloat(config.speedLimitFactor)
     const parsedMaxAssertionSize = parseInt(config.maxAssertionSize, 10)
@@ -142,7 +144,7 @@ const App = () => {
       return displayError('Invalid speed limit, must be in the range 0.1 - 100')
     } else if (
       SECONDS_PER_BLOCK.div(2).gt(parsedMaxAssertionSize) ||
-      parsedMaxAssertionSize > ((parsedGracePeriod * 60) / 4)
+      parsedMaxAssertionSize > (parsedGracePeriod * 60) / 4
     ) {
       return displayError(
         'Invalid max assertion size. Must be at least half of the average block time (13 seconds on a public network) and no more than 1/4 of the grace period.'
@@ -176,11 +178,13 @@ const App = () => {
     )
 
     if (!e || !e.args) {
-       return displayError('no RollupCreated event detected')
+      return displayError('no RollupCreated event detected')
     }
 
     // thanks for the 'array' ethers
-    const {vmAddress}: RollupCreatedParams = e.args as any as RollupCreatedParams
+    const {
+      vmAddress
+    }: RollupCreatedParams = (e.args as any) as RollupCreatedParams
 
     setRollupAddr(vmAddress)
   }
@@ -188,7 +192,7 @@ const App = () => {
   return (
     <div className={styles.rootContainer}>
       <div className={styles.titleContainer}>
-        <img src={Logo} className={styles.logo} />
+        <img src={Logo} alt={'Offchain Labs logo'} className={styles.logo} />
         <div className={mergeStyles(styles.baseTitle, styles.title)}>
           Arbitrum Rollup Chain Creator
         </div>
