@@ -187,7 +187,7 @@ const App = () => {
     )).wait()
 
     const e = result?.events?.find(e => e.topics.includes(factory.interface.events.RollupCreated.topic))
-    // TODO type bottom
+    // TODO type below
     setRollupAddr(e!.args![0])
   }
 
