@@ -52,7 +52,7 @@ const configInit: RollupChainConfig = {
 const configLocal: RollupChainConfig = {
   gracePeriod: '10',
   speedLimitFactor: '0.2',
-  maxAssertionTime: '250',
+  maxAssertionTime: '15',
   maxTimeWidth: '20',
   stakeRequirement: '0.1',
   vmHash: ''
