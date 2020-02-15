@@ -18,11 +18,15 @@ import Logo from './logo.png'
 import { abi } from 'arb-provider-ethers'
 import { ArbConversion } from 'arb-provider-ethers/dist/lib/conversion';
 import * as chainConfig from './config/chain'
-import { ROLLUP_FACTORIES, ALERT_TIMEOUT, WALLET_IDX, DEV_DOC_URL } from './config/constants'
+import { 
+  ROLLUP_FACTORIES,
+  ALERT_TIMEOUT,
+  WALLET_IDX,
+  DEV_DOC_URL
+} from './config/constants'
 
 const arbConversion = new ArbConversion()
 const ROLLUP_FACTORY = '0x2ff2D1Cced0EBD48ca829d3C9E7f86A1141F761F'
-
 
 
 const mergeStyles = (...styles: string[]): string => styles.join(' ')
@@ -58,7 +62,9 @@ const FormattedFormInput: React.FC<{
 
 const App = () => {
   const [web3, setWeb3] = React.useState<ethers.providers.JsonRpcProvider>()
-  const [[factory, factoryNet], setFactory] = React.useState<[abi.ArbFactory, number] | []>([])
+  const [[factory, factoryNet], setFactory] = React.useState<
+    [abi.ArbFactory, number] | []
+  >([])
   const [config, setConfig] = React.useState(chainConfig.init)
   const [[alertVariant, alertContent, alertActive], setAlert] = React.useState<
     ['danger' | 'success', string, boolean]
@@ -82,23 +88,25 @@ const App = () => {
         getInjectedWeb3().then(async provider => {
           const network = await provider.getNetwork()
           const factoryAddr = ROLLUP_FACTORIES[network.chainId]
-          
+
           if (!factoryAddr) {
-            return displayError('We do not have a deployed Rollup factory for the current Web3 provider: ' + provider.network.name)
+            return displayError(
+              'We do not have a deployed Rollup factory for the current Web3 provider: ' +
+                provider.network.name
+            )
           }
 
           setWeb3(provider)
-          setFactory(
-            [abi.ArbFactoryFactory.connect(
+          setFactory([
+            abi.ArbFactoryFactory.connect(
               factoryAddr,
               provider.getSigner(WALLET_IDX)
             ),
-            network.chainId]
-          )
+            network.chainId
+          ])
         })
       }
     }
-
   }, [web3])
   console.log(factory)
 
@@ -122,7 +130,8 @@ const App = () => {
       return displayError('No rollup address to copy')
     }
 
-    navigator.clipboard.writeText(rollupAddr)
+    navigator.clipboard
+      .writeText(rollupAddr)
       .then(() => displayInfo('Contract address copied!'))
       .catch(() => displayError('Unable to copy address!'))
   }
@@ -376,7 +385,9 @@ const App = () => {
         onClick={rollupAddr ? handleCopyAddr : handleCreateRollup}
         size={'lg'}
         block
-        disabled={factory && factoryNet && ROLLUP_FACTORIES[factoryNet] ? true : false}
+        disabled={
+          factory && factoryNet && ROLLUP_FACTORIES[factoryNet] ? true : false
+        }
       >
         {rollupAddr ? `${rollupAddr} (click to copy)` : 'Create Rollup Chain'}
       </Button>
