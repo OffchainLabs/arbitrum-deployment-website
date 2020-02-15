@@ -1,7 +1,7 @@
 import * as ethers from 'ethers'
 
 interface InjectedEthereumProvider
-  extends ethers.ethers.providers.AsyncSendable {
+  extends ethers.ethers.providers.Web3Provider {
   enable?: () => Promise<string[]>
 }
 
