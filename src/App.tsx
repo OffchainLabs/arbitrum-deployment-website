@@ -15,15 +15,15 @@ import { ethers } from 'ethers'
 import { web3Injected, getInjectedWeb3 } from './util/web3'
 import { getContractHash } from './util/file'
 import Logo from './logo.png'
-import * as chainConfig from './util/chainConfig'
 import { abi } from 'arb-provider-ethers'
 import { ArbConversion } from 'arb-provider-ethers/dist/lib/conversion';
+import * as chainConfig from './config/chain'
+import { ROLLUP_FACTORIES, ALERT_TIMEOUT, WALLET_IDX, DEV_DOC_URL } from './config/constants'
 
 const arbConversion = new ArbConversion()
 const ROLLUP_FACTORY = '0x2ff2D1Cced0EBD48ca829d3C9E7f86A1141F761F'
-const WALLET_IDX = 0
-const ALERT_TIMEOUT = 30 * 1000
-const DEV_DOC_URL = 'https://developer.offchainlabs.com/docs/Chain_parameters/'
+
+
 
 const mergeStyles = (...styles: string[]): string => styles.join(' ')
 
@@ -58,7 +58,7 @@ const FormattedFormInput: React.FC<{
 
 const App = () => {
   const [web3, setWeb3] = React.useState<ethers.providers.JsonRpcProvider>()
-  const [factory, setFactory] = React.useState<abi.ArbFactory>()
+  const [[factory, factoryNet], setFactory] = React.useState<[abi.ArbFactory, number] | []>([])
   const [config, setConfig] = React.useState(chainConfig.init)
   const [[alertVariant, alertContent, alertActive], setAlert] = React.useState<
     ['danger' | 'success', string, boolean]
@@ -79,18 +79,28 @@ const App = () => {
       if (!web3Injected(window.ethereum)) {
         displayError('web3 not present') // TODO
       } else {
-        getInjectedWeb3().then(provider => {
+        getInjectedWeb3().then(async provider => {
+          const network = await provider.getNetwork()
+          const factoryAddr = ROLLUP_FACTORIES[network.chainId]
+          
+          if (!factoryAddr) {
+            return displayError('We do not have a deployed Rollup factory for the current Web3 provider: ' + provider.network.name)
+          }
+
           setWeb3(provider)
           setFactory(
-            abi.ArbFactoryFactory.connect(
-              ROLLUP_FACTORY,
+            [abi.ArbFactoryFactory.connect(
+              factoryAddr,
               provider.getSigner(WALLET_IDX)
-            )
+            ),
+            network.chainId]
           )
         })
       }
     }
-  })
+
+  }, [web3])
+  console.log(factory)
 
   const closeAlert = () => setAlert(a => [a[0], a[1], false])
 
@@ -145,10 +155,11 @@ const App = () => {
       return displayError('Non-number value passed in.')
     }
 
-    let parsedStakeRequirement, parsedMaxTimeWidth
+    let parsedStakeRequirement, parsedMaxBlockWidth, parsedMaxTimestampWidth
     try {
       parsedStakeRequirement = ethers.utils.parseEther(config.stakeRequirement)
-      parsedMaxTimeWidth = ethers.utils.bigNumberify(config.maxTimeWidth)
+      parsedMaxBlockWidth = ethers.utils.bigNumberify(config.maxBlockWidth)
+      parsedMaxTimestampWidth = ethers.utils.bigNumberify(config.maxTimestampWidth)
     } catch (e) {
       console.error(e)
       return displayError(
@@ -172,11 +183,18 @@ const App = () => {
         'Invalid max assertion size. Must be at least half of the average block time (13 seconds on a public network) and no more than 1/4 of the grace period.'
       )
     } else if (
-      parsedMaxTimeWidth.lt(5) ||
-      parsedMaxTimeWidth.gt(arbConversion.secondsToBlocks(parsedGracePeriod * 60))
+      parsedMaxBlockWidth.lt(5) ||
+      parsedMaxBlockWidth.gt(arbConversion.secondsToBlocks(parsedGracePeriod * 60))
     ) {
       return displayError(
-        `Invalid max time width, should be in range 5 - (gracePeriod * 60 / ${arbConversion.secondsPerBlock})`
+        `Invalid max block width, should be in range 5 - (gracePeriod * 60 / ${arbConversion.secondsPerBlock})`
+      )
+    } else if (
+      parsedMaxTimestampWidth.lt(5) ||
+      parsedMaxTimestampWidth.gt(arbConversion.secondsToBlocks(parsedGracePeriod * 60))
+    ) {
+      return displayError(
+        `Invalid max timestamp width, should be in range 75 - (gracePeriod * 60)`
       )
     }
 
@@ -197,7 +215,7 @@ const App = () => {
           arbConversion.secondsToTicks(parsedGracePeriod * 60),
           arbConversion.secondsToTicks(speedLimitSeconds),
           ethers.utils.bigNumberify(maxSteps),
-          parsedMaxTimeWidth,
+          [parsedMaxBlockWidth, parsedMaxTimestampWidth],
           parsedStakeRequirement,
           addresses[WALLET_IDX]
         )
@@ -334,12 +352,20 @@ const App = () => {
             value={config.maxAssertionSize}
           />
           <FormattedFormInput
-            children={'Max time bounds width (blocks)'}
+            children={'Max time bounds width in blocks'}
             onChange={e => {
-              const maxTimeWidth = e.target.value
-              setConfig(c => ({ ...c, maxTimeWidth }))
+              const maxBlockWidth = e.target.value
+              setConfig(c => ({ ...c, maxBlockWidth }))
             }}
-            value={config.maxTimeWidth}
+            value={config.maxBlockWidth}
+          />
+          <FormattedFormInput
+            children={'Max time bounds width in seconds'}
+            onChange={e => {
+              const maxTimestampWidth = e.target.value
+              setConfig(c => ({ ...c, maxTimestampWidth }))
+            }}
+            value={config.maxTimestampWidth}
           />
         </div>
       </div>
@@ -350,6 +376,7 @@ const App = () => {
         onClick={rollupAddr ? handleCopyAddr : handleCreateRollup}
         size={'lg'}
         block
+        disabled={factory && factoryNet && ROLLUP_FACTORIES[factoryNet] ? true : false}
       >
         {rollupAddr ? `${rollupAddr} (click to copy)` : 'Create Rollup Chain'}
       </Button>

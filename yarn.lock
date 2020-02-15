@@ -1860,12 +1860,12 @@ aproba@^1.0.3, aproba@^1.1.1:
   resolved "https://registry.yarnpkg.com/aproba/-/aproba-1.2.0.tgz#6802e6264efd18c790a1b0d517f0f2627bf2c94a"
   integrity sha512-Y9J6ZjXtoYh8RnXVCMOU/ttDmk1aBjunq9vO0ta5x85WDQiQfUF9sIPBITdbiiIVcBo03Hi3jMxigBtsddlXRw==
 
-arb-provider-ethers@^0.4.7:
-  version "0.4.7"
-  resolved "https://registry.yarnpkg.com/arb-provider-ethers/-/arb-provider-ethers-0.4.7.tgz#afde7d242b04391838fa7d98eaeccde99d317192"
-  integrity sha512-p+rofZcwC9REMLCxHjMTi0JjmbkjVKlWUDwFGmwcxmMtVRpRVWvD27rCjxEwiO8JtPnhiawJC5li7kzIk0el4A==
+arb-provider-ethers@^0.5.0:
+  version "0.5.0"
+  resolved "https://registry.yarnpkg.com/arb-provider-ethers/-/arb-provider-ethers-0.5.0.tgz#7f71b595a956589adabaa7ea495cd5dfbf8b1c79"
+  integrity sha512-b3wR15OGB6IQEEtlRk9r6u4Qn7rf8CRlhBG/qK3UozMdOH0lar66HKqTAXGzIdSYe2f1c78PbrNGHS3BeROwmQ==
   dependencies:
-    ethers "^4.0.44"
+    ethers "^4.0.47"
     jayson "^3.2.0"
     promise-poller "^1.9.1"
 
@@ -4177,10 +4177,10 @@ etag@~1.8.1:
   resolved "https://registry.yarnpkg.com/etag/-/etag-1.8.1.tgz#41ae2eeb65efa62268aebfea83ac7d79299b0887"
   integrity sha1-Qa4u62XvpiJorr/qg6x9eSmbCIc=
 
-ethers@^4.0.44:
-  version "4.0.44"
-  resolved "https://registry.yarnpkg.com/ethers/-/ethers-4.0.44.tgz#f2608cbc0b4d099b7e10a01c0efc3a1037013b4e"
-  integrity sha512-kCkMPkpYjBkxzqjcuYUfDY7VHDbf5EXnfRPUOazdqdf59SvXaT+w5lgauxLlk1UjxnAiNfeNS87rkIXnsTaM7Q==
+ethers@^4.0.47:
+  version "4.0.47"
+  resolved "https://registry.yarnpkg.com/ethers/-/ethers-4.0.47.tgz#91b9cd80473b1136dd547095ff9171bd1fc68c85"
+  integrity sha512-hssRYhngV4hiDNeZmVU/k5/E8xmLG8UpcNUzg6mb7lqhgpFPH/t7nuv20RjRrEf0gblzvi2XwR5Te+V3ZFc9pQ==
   dependencies:
     aes-js "3.0.0"
     bn.js "^4.4.0"
@@ -10536,10 +10536,10 @@ typedarray@^0.0.6:
   resolved "https://registry.yarnpkg.com/typedarray/-/typedarray-0.0.6.tgz#867ac74e3864187b1d3d47d996a78ec5c8830777"
   integrity sha1-hnrHTjhkGHsdPUfZlqeOxciDB3c=
 
-typescript@~3.7.2:
-  version "3.7.5"
-  resolved "https://registry.yarnpkg.com/typescript/-/typescript-3.7.5.tgz#0692e21f65fd4108b9330238aac11dd2e177a1ae"
-  integrity sha512-/P5lkRXkWHNAbcJIiHPfRoKqyd7bsyCma1hZNUGfn20qm64T6ZBlrzprymeu918H+mB/0rIg2gGK/BXkhhYgBw==
+typescript@~3.8.3:
+  version "3.8.3"
+  resolved "https://registry.yarnpkg.com/typescript/-/typescript-3.8.3.tgz#409eb8544ea0335711205869ec458ab109ee1061"
+  integrity sha512-MYlEfn5VrLNsgudQTVJeNaQFUAI7DkhnOjdpAp4T+ku1TfQClewlbSuTVHiA+8skNBgaf02TL/kLOvig4y3G8w==
 
 uncontrollable@^7.0.0:
   version "7.1.1"
