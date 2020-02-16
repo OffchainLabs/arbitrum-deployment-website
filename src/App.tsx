@@ -24,7 +24,7 @@ import { ArbConversion } from 'arb-provider-ethers/dist/lib/conversion';
 import * as chainConfig from './config/chain'
 import { 
   ROLLUP_FACTORIES,
-  ALERT_TIMEOUT,
+  DEFAULT_ALERT_TIMEOUT,
   WALLET_IDX,
   DEV_DOC_URL
 } from './config/constants'
@@ -92,7 +92,7 @@ const App = () => {
   const displayError = React.useCallback(
     (message: string) => {
       setAlert(['danger', message, true])
-      setTimeout(closeAlert, ALERT_TIMEOUT)
+      setTimeout(closeAlert, DEFAULT_ALERT_TIMEOUT)
     },
     [setAlert, closeAlert]
   )
@@ -100,72 +100,78 @@ const App = () => {
   const displayInfo = React.useCallback(
     (message: string) => {
       setAlert(['success', message, true])
-      setTimeout(closeAlert, ALERT_TIMEOUT)
+      setTimeout(closeAlert, DEFAULT_ALERT_TIMEOUT)
     },
     [setAlert, closeAlert]
   )
 
   const updateFactory = React.useCallback(
-    (chainId: number) => {
-      if (!web3) {
-        throw new Error('updateFactory no web3 present')
-      }
+    (chainId: number, signer: ethers.Signer) => {
 
       const factoryAddr = ROLLUP_FACTORIES[chainId]
-
       if (!factoryAddr) {
         return displayError(
           'We do not have a deployed Rollup factory for the current Web3 provider: ' +
             chainId
         )
       }
+      // TODO when anon callers are wrapped in useCallback, this can be
+      // gated by alertActive
+      closeAlert()
 
       setFactory([
-        ArbFactoryFactory.connect(factoryAddr, web3.getSigner(WALLET_IDX)),
+        ArbFactoryFactory.connect(factoryAddr, signer),
         chainId
       ])
     },
-    [web3, setFactory, displayError]
+    [setFactory, displayError, closeAlert]
   )
 
   React.useEffect(() => {
     if (!web3) {
+      console.log('!web3')
       if (!web3Injected(window.ethereum)) {
         return displayError(
           'Web3 not injected; do you have MetaMask installed?'
         )
       }
-      getInjectedWeb3().then(setWeb3)
+
+      // TODO try to clean this up by wrapping the metamask listeners in
+      // useCallback. this should enable use to use the updateFactory callback
+      // properly with the `web3` state property being updated. nested callbacks
+      // lead to weirdness with web3 not being present and double registers.
+      let w3: ethers.providers.Web3Provider
+      getInjectedWeb3().then(provider => {
+        w3 = provider
+        setWeb3(provider)
+        return provider.getNetwork()
+      })
+      .then(network => {
+        const mm: InjectedEthereumProvider = w3._web3Provider
+        if (mm.on && typeof mm.on === 'function') {
+          // this 
+          mm.on('chainChanged', hexNetworkId => updateFactory(parseInt(hexNetworkId, 16), w3.getSigner(WALLET_IDX)))
+          mm.on('networkChanged', networkId => updateFactory(parseInt(networkId, 10), w3.getSigner(WALLET_IDX)))
+          mm.on('accountsChanged', _a => {
+            if (factoryNet) {
+              updateFactory(factoryNet, w3.getSigner(WALLET_IDX))
+            } else {
+              console.warn(
+                'accountsChanged event received but no factory present'
+              )
+            }
+          })
+        } else {
+          console.warn(
+            "No 'on' function detected, not setting Metamask event listeners"
+          )
+        }
+        updateFactory(network.chainId, w3.getSigner(WALLET_IDX))
+      })
     }
 
-    if (web3) {
-      console.log('w3')
-      const injectedWeb3: InjectedEthereumProvider = web3._web3Provider
-      if (injectedWeb3.on && typeof injectedWeb3.on === 'function') {
-        injectedWeb3.on('chainChanged', hexNetworkId =>
-          updateFactory(parseInt(hexNetworkId, 16))
-        )
-        injectedWeb3.on('networkChanged', networkId =>
-          updateFactory(parseInt(networkId, 10))
-        )
-        injectedWeb3.on('accountsChanged', _a => {
-          if (factoryNet) {
-            updateFactory(factoryNet)
-          } else {
-            console.warn(
-              'accountsChanged event received but no factory present'
-            )
-          }
-        })
-      } else {
-        console.warn(
-          "No 'on' function detected, not setting Metamask event listeners"
-        )
-      }
-
-      web3.getNetwork().then(network => updateFactory(network.chainId))
-    }
-  }, [web3, displayError, setWeb3, updateFactory, factoryNet])
+    // if (web3 && !factory) {}
+  }, [web3, displayError, setWeb3, factory, updateFactory, factoryNet])
 
   const updateConfig = (c: chainConfig.RollupParams) =>
     setConfig(oldConfig => ({ ...c, vmHash: oldConfig.vmHash }))

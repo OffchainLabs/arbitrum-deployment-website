@@ -1,6 +1,6 @@
 import { bigNumberify } from 'ethers/utils'
 
-export const ALERT_TIMEOUT = 30 * 1000
+export const DEFAULT_ALERT_TIMEOUT = 30 * 1000
 export const WALLET_IDX = 0
 export const DEV_DOC_URL =
   'https://developer.offchainlabs.com/docs/Chain_parameters/'
