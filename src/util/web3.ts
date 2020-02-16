@@ -1,8 +1,21 @@
 import * as ethers from 'ethers'
 
-interface InjectedEthereumProvider
-  extends ethers.ethers.providers.Web3Provider {
+interface MetamaskEventListeners {
+  accountsChanged: (accounts: string[]) => void
+  chainChanged: (chainIdHex: string) => void
+  networkChanged: (chainId: string) => void
+}
+
+// it would be nice to use the isMetamask property to determine whether these
+// properties are present
+export interface InjectedEthereumProvider
+  extends ethers.ethers.providers.AsyncSendable {
   enable?: () => Promise<string[]>
+  autoRefreshOnNetworkChange?: boolean
+  on?<T extends keyof MetamaskEventListeners>(
+    event: T,
+    listener: MetamaskEventListeners[T]
+  ): void
 }
 
 declare global {
@@ -18,9 +31,11 @@ export function web3Injected(
 }
 
 export async function getInjectedWeb3(): Promise<
-  ethers.providers.JsonRpcProvider
+  ethers.providers.Web3Provider
 > {
   if (web3Injected(window.ethereum)) {
+    window.ethereum.autoRefreshOnNetworkChange = false
+
     try {
       ;(await window.ethereum.enable?.()) ??
         console.warn('No window.ethereum.enable function')

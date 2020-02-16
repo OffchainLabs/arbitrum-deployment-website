@@ -12,7 +12,11 @@ import {
   InputGroup
 } from 'react-bootstrap'
 import { ethers } from 'ethers'
-import { web3Injected, getInjectedWeb3 } from './util/web3'
+import {
+  web3Injected,
+  getInjectedWeb3,
+  InjectedEthereumProvider
+} from './util/web3'
 import { getContractHash } from './util/file'
 import Logo from './logo.png'
 import { abi } from 'arb-provider-ethers'
@@ -61,7 +65,7 @@ const FormattedFormInput: React.FC<{
 )
 
 const App = () => {
-  const [web3, setWeb3] = React.useState<ethers.providers.JsonRpcProvider>()
+  const [web3, setWeb3] = React.useState<ethers.providers.Web3Provider>()
   const [[factory, factoryNet], setFactory] = React.useState<
     [abi.ArbFactory, number] | []
   >([])
@@ -80,47 +84,88 @@ const App = () => {
     }
   })
 
+  const closeAlert = React.useCallback(
+    () => setAlert(a => [a[0], a[1], false]),
+    [setAlert]
+  )
+
+  const displayError = React.useCallback(
+    (message: string) => {
+      setAlert(['danger', message, true])
+      setTimeout(closeAlert, ALERT_TIMEOUT)
+    },
+    [setAlert, closeAlert]
+  )
+
+  const displayInfo = React.useCallback(
+    (message: string) => {
+      setAlert(['success', message, true])
+      setTimeout(closeAlert, ALERT_TIMEOUT)
+    },
+    [setAlert, closeAlert]
+  )
+
+  const updateFactory = React.useCallback(
+    (chainId: number) => {
+      if (!web3) {
+        throw new Error('updateFactory no web3 present')
+      }
+
+      const factoryAddr = ROLLUP_FACTORIES[chainId]
+
+      if (!factoryAddr) {
+        return displayError(
+          'We do not have a deployed Rollup factory for the current Web3 provider: ' +
+            chainId
+        )
+      }
+
+      setFactory([
+        ArbFactoryFactory.connect(factoryAddr, web3.getSigner(WALLET_IDX)),
+        chainId
+      ])
+    },
+    [web3, setFactory, displayError]
+  )
+
   React.useEffect(() => {
     if (!web3) {
       if (!web3Injected(window.ethereum)) {
-        displayError('web3 not present') // TODO
-      } else {
-        getInjectedWeb3().then(async provider => {
-          const network = await provider.getNetwork()
-          const factoryAddr = ROLLUP_FACTORIES[network.chainId]
+        return displayError(
+          'Web3 not injected; do you have MetaMask installed?'
+        )
+      }
+      getInjectedWeb3().then(setWeb3)
+    }
 
-          if (!factoryAddr) {
-            return displayError(
-              'We do not have a deployed Rollup factory for the current Web3 provider: ' +
-                provider.network.name
+    if (web3) {
+      console.log('w3')
+      const injectedWeb3: InjectedEthereumProvider = web3._web3Provider
+      if (injectedWeb3.on && typeof injectedWeb3.on === 'function') {
+        injectedWeb3.on('chainChanged', hexNetworkId =>
+          updateFactory(parseInt(hexNetworkId, 16))
+        )
+        injectedWeb3.on('networkChanged', networkId =>
+          updateFactory(parseInt(networkId, 10))
+        )
+        injectedWeb3.on('accountsChanged', _a => {
+          if (factoryNet) {
+            updateFactory(factoryNet)
+          } else {
+            console.warn(
+              'accountsChanged event received but no factory present'
             )
           }
-
-          setWeb3(provider)
-          setFactory([
-            abi.ArbFactoryFactory.connect(
-              factoryAddr,
-              provider.getSigner(WALLET_IDX)
-            ),
-            network.chainId
-          ])
         })
+      } else {
+        console.warn(
+          "No 'on' function detected, not setting Metamask event listeners"
+        )
       }
+
+      web3.getNetwork().then(network => updateFactory(network.chainId))
     }
-  }, [web3])
-  console.log(factory)
-
-  const closeAlert = () => setAlert(a => [a[0], a[1], false])
-
-  const displayError = (message: string) => {
-    setAlert(['danger', message, true])
-    setTimeout(closeAlert, ALERT_TIMEOUT)
-  }
-
-  const displayInfo = (message: string) => {
-    setAlert(['success', message, true])
-    setTimeout(closeAlert, ALERT_TIMEOUT)
-  }
+  }, [web3, displayError, setWeb3, updateFactory, factoryNet])
 
   const updateConfig = (c: chainConfig.RollupParams) =>
     setConfig(oldConfig => ({ ...c, vmHash: oldConfig.vmHash }))
