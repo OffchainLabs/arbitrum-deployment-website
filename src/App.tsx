@@ -1,6 +1,4 @@
 import React from 'react'
-import { ArbFactoryFactory } from 'arb-provider-ethers/dist/lib/abi/ArbFactoryFactory'
-import { ArbFactory } from 'arb-provider-ethers/dist/lib/abi/ArbFactory'
 import { useDropzone } from 'react-dropzone'
 import styles from './App.module.scss'
 import {
@@ -16,26 +14,16 @@ import {
 import { ethers } from 'ethers'
 import { web3Injected, getInjectedWeb3 } from './util/web3'
 import { getContractHash } from './util/file'
-import {
-  secondsToTicks,
-  SECONDS_PER_BLOCK,
-  secondsToBlocks
-} from './util/ticks'
 import Logo from './logo.png'
 import * as chainConfig from './util/chainConfig'
+import { abi } from 'arb-provider-ethers'
+import { ArbConversion } from 'arb-provider-ethers/dist/lib/conversion';
 
+const arbConversion = new ArbConversion()
 const ROLLUP_FACTORY = '0x2ff2D1Cced0EBD48ca829d3C9E7f86A1141F761F'
 const WALLET_IDX = 0
 const ALERT_TIMEOUT = 30 * 1000
-const GAS_PER_SECOND = 10 ** 8
-const GAS_PER_STEP = 5
 const DEV_DOC_URL = 'https://developer.offchainlabs.com/docs/Chain_parameters/'
-
-const cpuFactorToSpeedLimit = (factor: number): number =>
-  factor * GAS_PER_SECOND
-
-const assertionTimeToSteps = (seconds: number, speedLimitSeconds: number) =>
-  (seconds * speedLimitSeconds) / GAS_PER_STEP
 
 const mergeStyles = (...styles: string[]): string => styles.join(' ')
 
@@ -70,7 +58,7 @@ const FormattedFormInput: React.FC<{
 
 const App = () => {
   const [web3, setWeb3] = React.useState<ethers.providers.JsonRpcProvider>()
-  const [factory, setFactory] = React.useState<ArbFactory>()
+  const [factory, setFactory] = React.useState<abi.ArbFactory>()
   const [config, setConfig] = React.useState(chainConfig.init)
   const [[alertVariant, alertContent, alertActive], setAlert] = React.useState<
     ['danger' | 'success', string, boolean]
@@ -94,7 +82,7 @@ const App = () => {
         getInjectedWeb3().then(provider => {
           setWeb3(provider)
           setFactory(
-            ArbFactoryFactory.connect(
+            abi.ArbFactoryFactory.connect(
               ROLLUP_FACTORY,
               provider.getSigner(WALLET_IDX)
             )
@@ -177,7 +165,7 @@ const App = () => {
     } else if (parsedSpeedLimitFactor < 0.1 || parsedSpeedLimitFactor > 100) {
       return displayError('Invalid speed limit, must be in the range 0.1 - 100')
     } else if (
-      SECONDS_PER_BLOCK.div(2).gt(parsedMaxAssertionSize) ||
+      arbConversion.secondsPerBlock.div(2).gt(parsedMaxAssertionSize) ||
       parsedMaxAssertionSize > (parsedGracePeriod * 60) / 4
     ) {
       return displayError(
@@ -185,15 +173,15 @@ const App = () => {
       )
     } else if (
       parsedMaxTimeWidth.lt(5) ||
-      parsedMaxTimeWidth.gt(secondsToBlocks(parsedGracePeriod * 60))
+      parsedMaxTimeWidth.gt(arbConversion.secondsToBlocks(parsedGracePeriod * 60))
     ) {
       return displayError(
-        `Invalid max time width, should be in range 5 - (gracePeriod * 60 / ${SECONDS_PER_BLOCK})`
+        `Invalid max time width, should be in range 5 - (gracePeriod * 60 / ${arbConversion.secondsPerBlock})`
       )
     }
 
-    const speedLimitSeconds = cpuFactorToSpeedLimit(parsedSpeedLimitFactor)
-    const maxSteps = assertionTimeToSteps(
+    const speedLimitSeconds = arbConversion.cpuFactorToSpeedLimitSecs(parsedSpeedLimitFactor)
+    const maxSteps = arbConversion.assertionTimeToSteps(
       parsedMaxAssertionSize,
       speedLimitSeconds
     )
@@ -206,8 +194,8 @@ const App = () => {
       const result = await (
         await factory.createRollup(
           config.vmHash,
-          secondsToTicks(parsedGracePeriod * 60),
-          secondsToTicks(speedLimitSeconds),
+          arbConversion.secondsToTicks(parsedGracePeriod * 60),
+          arbConversion.secondsToTicks(speedLimitSeconds),
           ethers.utils.bigNumberify(maxSteps),
           parsedMaxTimeWidth,
           parsedStakeRequirement,
@@ -363,7 +351,7 @@ const App = () => {
         size={'lg'}
         block
       >
-        {rollupAddr ? `${rollupAddr} (click to copy)`: 'Create Rollup Chain'}
+        {rollupAddr ? `${rollupAddr} (click to copy)` : 'Create Rollup Chain'}
       </Button>
     </div>
   )
