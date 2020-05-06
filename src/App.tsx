@@ -120,7 +120,7 @@ const App = () => {
       closeAlert()
 
       setFactory([
-        ArbFactoryFactory.connect(factoryAddr, signer),
+        abi.ArbFactoryFactory.connect(factoryAddr, signer),
         chainId
       ])
     },
