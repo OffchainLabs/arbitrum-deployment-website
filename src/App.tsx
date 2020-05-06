@@ -30,7 +30,6 @@ import {
 } from './config/constants'
 
 const arbConversion = new ArbConversion()
-const ROLLUP_FACTORY = '0x2ff2D1Cced0EBD48ca829d3C9E7f86A1141F761F'
 
 
 const mergeStyles = (...styles: string[]): string => styles.join(' ')
