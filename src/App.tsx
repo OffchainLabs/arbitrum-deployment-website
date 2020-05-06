@@ -12,18 +12,26 @@ import {
   InputGroup
 } from 'react-bootstrap'
 import { ethers } from 'ethers'
-import { web3Injected, getInjectedWeb3 } from './util/web3'
+import {
+  web3Injected,
+  getInjectedWeb3,
+  InjectedEthereumProvider
+} from './util/web3'
 import { getContractHash } from './util/file'
 import Logo from './logo.png'
-import * as chainConfig from './util/chainConfig'
 import { abi } from 'arb-provider-ethers'
 import { ArbConversion } from 'arb-provider-ethers/dist/lib/conversion';
+import * as chainConfig from './config/chain'
+import { 
+  ROLLUP_FACTORIES,
+  DEFAULT_ALERT_TIMEOUT,
+  WALLET_IDX,
+  DEV_DOC_URL
+} from './config/constants'
 
 const arbConversion = new ArbConversion()
 const ROLLUP_FACTORY = '0x2ff2D1Cced0EBD48ca829d3C9E7f86A1141F761F'
-const WALLET_IDX = 0
-const ALERT_TIMEOUT = 30 * 1000
-const DEV_DOC_URL = 'https://developer.offchainlabs.com/docs/Chain_parameters/'
+
 
 const mergeStyles = (...styles: string[]): string => styles.join(' ')
 
@@ -57,8 +65,10 @@ const FormattedFormInput: React.FC<{
 )
 
 const App = () => {
-  const [web3, setWeb3] = React.useState<ethers.providers.JsonRpcProvider>()
-  const [factory, setFactory] = React.useState<abi.ArbFactory>()
+  const [web3, setWeb3] = React.useState<ethers.providers.Web3Provider>()
+  const [[factory, factoryNet], setFactory] = React.useState<
+    [abi.ArbFactory, number] | []
+  >([])
   const [config, setConfig] = React.useState(chainConfig.init)
   const [[alertVariant, alertContent, alertActive], setAlert] = React.useState<
     ['danger' | 'success', string, boolean]
@@ -74,35 +84,94 @@ const App = () => {
     }
   })
 
+  const closeAlert = React.useCallback(
+    () => setAlert(a => [a[0], a[1], false]),
+    [setAlert]
+  )
+
+  const displayError = React.useCallback(
+    (message: string) => {
+      setAlert(['danger', message, true])
+      setTimeout(closeAlert, DEFAULT_ALERT_TIMEOUT)
+    },
+    [setAlert, closeAlert]
+  )
+
+  const displayInfo = React.useCallback(
+    (message: string) => {
+      setAlert(['success', message, true])
+      setTimeout(closeAlert, DEFAULT_ALERT_TIMEOUT)
+    },
+    [setAlert, closeAlert]
+  )
+
+  const updateFactory = React.useCallback(
+    (chainId: number, signer: ethers.Signer) => {
+
+      const factoryAddr = ROLLUP_FACTORIES[chainId]
+      if (!factoryAddr) {
+        return displayError(
+          'We do not have a deployed Rollup factory for the current Web3 provider: ' +
+            chainId
+        )
+      }
+      // TODO when anon callers are wrapped in useCallback, this can be
+      // gated by alertActive
+      closeAlert()
+
+      setFactory([
+        abi.ArbFactoryFactory.connect(factoryAddr, signer),
+        chainId
+      ])
+    },
+    [setFactory, displayError, closeAlert]
+  )
+
   React.useEffect(() => {
     if (!web3) {
+      console.log('!web3')
       if (!web3Injected(window.ethereum)) {
-        displayError('web3 not present') // TODO
-      } else {
-        getInjectedWeb3().then(provider => {
-          setWeb3(provider)
-          setFactory(
-            abi.ArbFactoryFactory.connect(
-              ROLLUP_FACTORY,
-              provider.getSigner(WALLET_IDX)
-            )
-          )
-        })
+        return displayError(
+          'Web3 not injected; do you have MetaMask installed?'
+        )
       }
+
+      // TODO try to clean this up by wrapping the metamask listeners in
+      // useCallback. this should enable use to use the updateFactory callback
+      // properly with the `web3` state property being updated. nested callbacks
+      // lead to weirdness with web3 not being present and double registers.
+      let w3: ethers.providers.Web3Provider
+      getInjectedWeb3().then(provider => {
+        w3 = provider
+        setWeb3(provider)
+        return provider.getNetwork()
+      })
+      .then(network => {
+        const mm: InjectedEthereumProvider = w3._web3Provider
+        if (mm.on && typeof mm.on === 'function') {
+          // this 
+          mm.on('chainChanged', hexNetworkId => updateFactory(parseInt(hexNetworkId, 16), w3.getSigner(WALLET_IDX)))
+          mm.on('networkChanged', networkId => updateFactory(parseInt(networkId, 10), w3.getSigner(WALLET_IDX)))
+          mm.on('accountsChanged', _a => {
+            if (factoryNet) {
+              updateFactory(factoryNet, w3.getSigner(WALLET_IDX))
+            } else {
+              console.warn(
+                'accountsChanged event received but no factory present'
+              )
+            }
+          })
+        } else {
+          console.warn(
+            "No 'on' function detected, not setting Metamask event listeners"
+          )
+        }
+        updateFactory(network.chainId, w3.getSigner(WALLET_IDX))
+      })
     }
-  })
 
-  const closeAlert = () => setAlert(a => [a[0], a[1], false])
-
-  const displayError = (message: string) => {
-    setAlert(['danger', message, true])
-    setTimeout(closeAlert, ALERT_TIMEOUT)
-  }
-
-  const displayInfo = (message: string) => {
-    setAlert(['success', message, true])
-    setTimeout(closeAlert, ALERT_TIMEOUT)
-  }
+    // if (web3 && !factory) {}
+  }, [web3, displayError, setWeb3, factory, updateFactory, factoryNet])
 
   const updateConfig = (c: chainConfig.RollupParams) =>
     setConfig(oldConfig => ({ ...c, vmHash: oldConfig.vmHash }))
@@ -112,7 +181,8 @@ const App = () => {
       return displayError('No rollup address to copy')
     }
 
-    navigator.clipboard.writeText(rollupAddr)
+    navigator.clipboard
+      .writeText(rollupAddr)
       .then(() => displayInfo('Contract address copied!'))
       .catch(() => displayError('Unable to copy address!'))
   }
@@ -145,10 +215,11 @@ const App = () => {
       return displayError('Non-number value passed in.')
     }
 
-    let parsedStakeRequirement, parsedMaxTimeWidth
+    let parsedStakeRequirement, parsedMaxBlockWidth, parsedMaxTimestampWidth
     try {
       parsedStakeRequirement = ethers.utils.parseEther(config.stakeRequirement)
-      parsedMaxTimeWidth = ethers.utils.bigNumberify(config.maxTimeWidth)
+      parsedMaxBlockWidth = ethers.utils.bigNumberify(config.maxBlockWidth)
+      parsedMaxTimestampWidth = ethers.utils.bigNumberify(config.maxTimestampWidth)
     } catch (e) {
       console.error(e)
       return displayError(
@@ -172,11 +243,18 @@ const App = () => {
         'Invalid max assertion size. Must be at least half of the average block time (13 seconds on a public network) and no more than 1/4 of the grace period.'
       )
     } else if (
-      parsedMaxTimeWidth.lt(5) ||
-      parsedMaxTimeWidth.gt(arbConversion.secondsToBlocks(parsedGracePeriod * 60))
+      parsedMaxBlockWidth.lt(5) ||
+      parsedMaxBlockWidth.gt(arbConversion.secondsToBlocks(parsedGracePeriod * 60))
     ) {
       return displayError(
-        `Invalid max time width, should be in range 5 - (gracePeriod * 60 / ${arbConversion.secondsPerBlock})`
+        `Invalid max block width, should be in range 5 - (gracePeriod * 60 / ${arbConversion.secondsPerBlock})`
+      )
+    } else if (
+      parsedMaxTimestampWidth.lt(5) ||
+      parsedMaxTimestampWidth.gt(arbConversion.secondsToBlocks(parsedGracePeriod * 60))
+    ) {
+      return displayError(
+        `Invalid max timestamp width, should be in range 75 - (gracePeriod * 60)`
       )
     }
 
@@ -197,7 +275,7 @@ const App = () => {
           arbConversion.secondsToTicks(parsedGracePeriod * 60),
           arbConversion.secondsToTicks(speedLimitSeconds),
           ethers.utils.bigNumberify(maxSteps),
-          parsedMaxTimeWidth,
+          [parsedMaxBlockWidth, parsedMaxTimestampWidth],
           parsedStakeRequirement,
           addresses[WALLET_IDX]
         )
@@ -334,12 +412,20 @@ const App = () => {
             value={config.maxAssertionSize}
           />
           <FormattedFormInput
-            children={'Max time bounds width (blocks)'}
+            children={'Max time bounds width in blocks'}
             onChange={e => {
-              const maxTimeWidth = e.target.value
-              setConfig(c => ({ ...c, maxTimeWidth }))
+              const maxBlockWidth = e.target.value
+              setConfig(c => ({ ...c, maxBlockWidth }))
             }}
-            value={config.maxTimeWidth}
+            value={config.maxBlockWidth}
+          />
+          <FormattedFormInput
+            children={'Max time bounds width in seconds'}
+            onChange={e => {
+              const maxTimestampWidth = e.target.value
+              setConfig(c => ({ ...c, maxTimestampWidth }))
+            }}
+            value={config.maxTimestampWidth}
           />
         </div>
       </div>
@@ -350,6 +436,9 @@ const App = () => {
         onClick={rollupAddr ? handleCopyAddr : handleCreateRollup}
         size={'lg'}
         block
+        disabled={
+          factory && factoryNet && ROLLUP_FACTORIES[factoryNet] ? true : false
+        }
       >
         {rollupAddr ? `${rollupAddr} (click to copy)` : 'Create Rollup Chain'}
       </Button>
