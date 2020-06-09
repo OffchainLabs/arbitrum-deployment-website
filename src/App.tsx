@@ -436,7 +436,7 @@ const App = () => {
         size={'lg'}
         block
         disabled={
-          factory && factoryNet && ROLLUP_FACTORIES[factoryNet] ? true : false
+          !(factory && factoryNet && ROLLUP_FACTORIES[factoryNet]) ? true : false
         }
       >
         {rollupAddr ? `${rollupAddr} (click to copy)` : 'Create Rollup Chain'}
