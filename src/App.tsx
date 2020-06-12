@@ -280,8 +280,8 @@ const App = () => {
         )
       ).wait()
 
-      const e = result.events?.find(e =>
-        e.topics.includes(factory.interface.events.RollupCreated.topic)
+      const e = result.events?.find((e: ethers.Event) =>
+        e.topics.includes((factory.interface.events.RollupCreated as ethers.utils.EventDescription).topic)
       )
 
       // thanks for the 'array' ethers
