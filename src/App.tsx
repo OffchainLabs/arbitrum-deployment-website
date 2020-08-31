@@ -51,7 +51,7 @@ declare global {
 }
 
 interface RollupCreatedParams {
-  vmAddress: string
+  rollupAddress: string
 }
 
 const FormattedFormInput: React.FC<{
@@ -268,10 +268,10 @@ const App = () => {
 
       // thanks for the 'array' ethers
       const {
-        vmAddress
+        rollupAddress
       }: RollupCreatedParams = (e?.args as any) as RollupCreatedParams
 
-      setRollupAddr(vmAddress)
+      setRollupAddr(rollupAddress)
     } catch (e) {
       console.error(e)
       return displayError('Unable to deploy contract. See console for details.')
