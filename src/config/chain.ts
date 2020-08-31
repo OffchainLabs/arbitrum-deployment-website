@@ -3,7 +3,6 @@ export interface RollupParams {
   speedLimitFactor: string // cpu factor
   maxAssertionSize: string // seconds
   stakeRequirement: string // eth
-  vmHash: string
 }
 
 export const init: RollupParams = {
@@ -11,7 +10,6 @@ export const init: RollupParams = {
   speedLimitFactor: '',
   maxAssertionSize: '',
   stakeRequirement: '',
-  vmHash: ''
 }
 
 export const local: RollupParams = {
@@ -19,7 +17,6 @@ export const local: RollupParams = {
   speedLimitFactor: '0.2',
   maxAssertionSize: '15',
   stakeRequirement: '0.1',
-  vmHash: ''
 }
 
 export const testnet: RollupParams = {
@@ -27,5 +24,4 @@ export const testnet: RollupParams = {
   speedLimitFactor: '1.0',
   maxAssertionSize: '50',
   stakeRequirement: '1',
-  vmHash: ''
 }

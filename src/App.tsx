@@ -17,12 +17,12 @@ import {
   getInjectedWeb3,
   InjectedEthereumProvider
 } from './util/web3'
-import { getContractHash } from './util/file'
 import Logo from './logo.png'
 import { abi } from 'arb-provider-ethers'
 import { ArbConversion } from 'arb-provider-ethers/dist/lib/conversion';
 import * as chainConfig from './config/chain'
 import { 
+  ARBOS_HASH,
   ROLLUP_FACTORIES,
   DEFAULT_ALERT_TIMEOUT,
   WALLET_IDX,
@@ -80,15 +80,6 @@ const App = () => {
   >(['danger', '', false])
   const [fileName, setFileName] = React.useState<string>()
   const [rollupAddr, setRollupAddr] = React.useState<string>()
-  const { getRootProps, getInputProps } = useDropzone({
-    accept: '.ao',
-    onDropAccepted: async (files, _e) => {
-      const vmHash = await getContractHash(files)
-      setConfig(c => ({ ...c, vmHash }))
-      setFileName(files[0].name)
-    }
-  })
-
   const closeAlert = React.useCallback(
     () => setAlert(a => [a[0], a[1], false]),
     [setAlert]
@@ -179,7 +170,7 @@ const App = () => {
   }, [web3, displayError, setWeb3, factory, updateFactory, factoryNet])
 
   const updateConfig = (c: chainConfig.RollupParams) =>
-    setConfig(oldConfig => ({ ...c, vmHash: oldConfig.vmHash }))
+    setConfig(oldConfig => ({ ...c }))
 
   const handleCopyAddr = () => {
     if (!rollupAddr) {
@@ -260,7 +251,7 @@ const App = () => {
 
       const result = await (
         await factory.createRollup(
-          config.vmHash,
+          ARBOS_HASH,
           arbConversion.secondsToTicks(parsedGracePeriod * 60),
           arbConversion.secondsToTicks(speedLimitSeconds),
           ethers.utils.bigNumberify(maxSteps),
@@ -296,19 +287,6 @@ const App = () => {
         <div className={mergeStyles(styles.baseTitle, styles.title)}>
           Arbitrum Rollup Chain Creator
         </div>
-      </div>
-
-      <div className={styles.uploadContainer}>
-        <div className={mergeStyles(styles.baseTitle, styles.subtitle)}>
-          Contract Upload
-        </div>
-        <Card className={styles.dndContainer} {...getRootProps()}>
-          <input {...getInputProps()} />
-          <Card.Body>
-            {fileName ??
-              'Drag and drop an Arbitrum executable, or click to open a prompt.'}
-          </Card.Body>
-        </Card>
       </div>
 
       <div>
@@ -353,22 +331,6 @@ const App = () => {
         ) : null}
 
         <div className={styles.chainParamsForm}>
-          <InputGroup>
-            <InputGroup.Prepend className={styles.formLabel}>
-              <InputGroup.Text
-                className={styles.formLabelText}
-                children={'Initial Chain State Hash'}
-              />
-            </InputGroup.Prepend>
-            <FormControl
-              className={styles.machineHash}
-              type={'text'}
-              readOnly
-              plaintext
-              value={config.vmHash.slice(0, 20)}
-            />
-          </InputGroup>
-
           <FormattedFormInput
             children={'Stake requirement (ETH)'}
             onChange={e => {
