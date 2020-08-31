@@ -1,4 +1,4 @@
-import { ArbValue } from 'arb-provider-ethers'
+import { Program } from 'arb-provider-ethers'
 
 function readFileAsync(file: File): Promise<Uint8Array> {
   return new Promise<Uint8Array>((resolve, reject) => {
@@ -21,5 +21,5 @@ export async function getContractHash(files: File[]): Promise<string> {
     throw Error('No files')
   }
   const data = await readFileAsync(files[0])
-  return ArbValue.contractMachineHash(data)
+  return Program.programMachineHash(new TextDecoder("utf-8").decode(data))
 }

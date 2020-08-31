@@ -29,6 +29,12 @@ import {
   DEV_DOC_URL
 } from './config/constants'
 
+type WithGeneric = Parameters<NonNullable<React.ComponentProps<typeof Form.Control>['onChange']>>[0];
+type ExtractGeneric<Type> = Type extends React.ChangeEvent<infer X> ? X : never;
+
+// FormControlElement, ready for you to export.
+type FormControlElement = ExtractGeneric<WithGeneric>;
+
 const arbConversion = new ArbConversion()
 
 
@@ -50,7 +56,7 @@ interface RollupCreatedParams {
 
 const FormattedFormInput: React.FC<{
   type?: string
-  onChange: React.FormEventHandler<HTMLInputElement>
+  onChange: React.FormEventHandler<FormControlElement>
   value?: string
 }> = ({ children, onChange, value, type = 'text' }) => (
   <InputGroup>
@@ -214,11 +220,9 @@ const App = () => {
       return displayError('Non-number value passed in.')
     }
 
-    let parsedStakeRequirement, parsedMaxBlockWidth, parsedMaxTimestampWidth
+    let parsedStakeRequirement
     try {
       parsedStakeRequirement = ethers.utils.parseEther(config.stakeRequirement)
-      parsedMaxBlockWidth = ethers.utils.bigNumberify(config.maxBlockWidth)
-      parsedMaxTimestampWidth = ethers.utils.bigNumberify(config.maxTimestampWidth)
     } catch (e) {
       console.error(e)
       return displayError(
@@ -241,20 +245,6 @@ const App = () => {
       return displayError(
         'Invalid max assertion size. Must be at least half of the average block time (13 seconds on a public network) and no more than 1/4 of the grace period.'
       )
-    } else if (
-      parsedMaxBlockWidth.lt(5) ||
-      parsedMaxBlockWidth.gt(arbConversion.secondsToBlocks(parsedGracePeriod * 60))
-    ) {
-      return displayError(
-        `Invalid max block width, should be in range 5 - (gracePeriod * 60 / ${arbConversion.secondsPerBlock})`
-      )
-    } else if (
-      parsedMaxTimestampWidth.lt(5) ||
-      parsedMaxTimestampWidth.gt(arbConversion.secondsToBlocks(parsedGracePeriod * 60))
-    ) {
-      return displayError(
-        `Invalid max timestamp width, should be in range 75 - (gracePeriod * 60)`
-      )
     }
 
     const speedLimitSeconds = arbConversion.cpuFactorToSpeedLimitSecs(parsedSpeedLimitFactor)
@@ -274,9 +264,10 @@ const App = () => {
           arbConversion.secondsToTicks(parsedGracePeriod * 60),
           arbConversion.secondsToTicks(speedLimitSeconds),
           ethers.utils.bigNumberify(maxSteps),
-          [parsedMaxBlockWidth, parsedMaxTimestampWidth],
           parsedStakeRequirement,
-          addresses[WALLET_IDX]
+          '0x0000000000000000000000000000000000000000',
+          '0x0000000000000000000000000000000000000000',
+          '0x'
         )
       ).wait()
 
@@ -409,22 +400,6 @@ const App = () => {
               setConfig(c => ({ ...c, maxAssertionSize }))
             }}
             value={config.maxAssertionSize}
-          />
-          <FormattedFormInput
-            children={'Max time bounds width in blocks'}
-            onChange={e => {
-              const maxBlockWidth = e.target.value
-              setConfig(c => ({ ...c, maxBlockWidth }))
-            }}
-            value={config.maxBlockWidth}
-          />
-          <FormattedFormInput
-            children={'Max time bounds width in seconds'}
-            onChange={e => {
-              const maxTimestampWidth = e.target.value
-              setConfig(c => ({ ...c, maxTimestampWidth }))
-            }}
-            value={config.maxTimestampWidth}
           />
         </div>
       </div>
